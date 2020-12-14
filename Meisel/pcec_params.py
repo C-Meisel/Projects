@@ -13,7 +13,7 @@ import math
 i_ext = 40 #A
 C_dl_neg = 6e5 # F/m2 this makes it so my function does not go to negative infinity
 C_dl_pos = 2e2 # F/m2 (need to look up)
-t_final = 1000 #seconds
+t_final = 100 #seconds
 
 "Physical Constants:"
 F = 96485 #C/mol e-
@@ -22,6 +22,12 @@ R = 8.314 #J/mol*K
 "Equation values"
 T = 823 #K
 
+#Node thicknesses:
+dy1_neg = 980e-6 # m
+dy2_neg = 20e-6 # m
+dy_ely = 10e-6 # m
+dy_pos = 20e-6 # m
+
 "Initial Gas Concentrations/parameters"
 #For now this only applies to the negatrode
 #-----Negatrode: For now there is a non reactive node and a reaction node
@@ -29,12 +35,8 @@ T = 823 #K
 P_neg_gd = 101325 # Pa
 P_neg_rxn = 81343 # Pa
 
-#Node thicknesses:
-dy1 = 980e-6 # m
-dy2 = 20e-6 # m
-
 # Initial mol fractions
-X_k_gd = np.array([0.50, 0.50, 0.0]) #H2, N2, Steam
+X_k_gd = np.array([0.50, 0.49, 0.01]) #H2, N2, Steam
 X_k_rxn = np.array([0.40, 0.55, 0.05]) #H2, N2, Steam
 
 #Concentrations
@@ -71,16 +73,16 @@ k_rev_star_neg_o = 4.0650045e-1 #Chemical reverse rate constant, m^4/mol^2/s
 k_fwd_star_neg_p = 4.16307062e+3 # Chemical forward rate constant, m^4/mol^2/s
 k_rev_star_neg_p = 4.0650045e+1 #Chemical reverse rate constant, m^4/mol^2/s
 #Positrode ORR
-k_fwd_star_pos_o = 4.16307062e+1 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_pos_o = 4.0650045e-1 #Chemical reverse rate constant, m^4/mol^2/s
+k_fwd_star_pos_o = 4.16307062e+0 # Chemical forward rate constant, m^4/mol^2/s
+k_rev_star_pos_o = 4.0650045e-2 #Chemical reverse rate constant, m^4/mol^2/s
 #Positrode HRR also neeed to look these up, but im assuming they are much faster than the oxide ones
-k_fwd_star_pos_p = 4.16307062e+3 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_pos_p = 4.0650045e+1 #Chemical reverse rate constant, m^4/mol^2/s
+k_fwd_star_pos_p = 4.16307062e+2 # Chemical forward rate constant, m^4/mol^2/s
+k_rev_star_pos_p = 4.0650045e+0 #Chemical reverse rate constant, m^4/mol^2/s
 #Negatrode water desorption: (water desorbing from Ni at 550C) (K^*=K, only a chemical reaction)
-k_fwd_star_neg_wd = 1 #m^4/(mol^2*s) (need to look up)
+k_fwd_star_neg_wd = 2 #m^4/(mol^2*s) (need to look up)
 k_rev_star_neg_wd = 1 #m^4/(mol^2*s) (need to look up)
 #Negatrode Hydrogen adsorption (Hydrogen gas adsorbing from Ni at 550C)
-k_fwd_star_h2a = 1 #m^4/(mol^2*s) (need to look up)
+k_fwd_star_h2a = 2 #m^4/(mol^2*s) (need to look up)
 k_rev_star_h2a = 1 #m^4/(mol^2*s) (need to look up)
 
 
@@ -167,7 +169,9 @@ nu_vac_Ni_g = 1
 nu_H20_gas_neg_g = 1
 
 #/\/\/\/\/\ Initializing Solution Vector /\/\/\/\/\
-SV_0 = np.array([dphi_int_neg_0, C_k_gd_neg0, C_k_rxn_neg0, dphi_int_pos_0 ])
+SV_0 = np.hstack([dphi_int_neg_0, C_k_gd_neg0, C_k_rxn_neg0, dphi_int_pos_0 ])
+#SV_0 = np.array([dphi_int_neg_0,dphi_int_pos_0])
+print(SV_0)
 
 #/\/\/\/\/\ Making the parameter class /\/\/\/\/\
 class pars:
@@ -183,9 +187,10 @@ class pars:
     tau_fac_neg = eps_gas_neg**n_brugg
     Kg_neg = (eps_gas_neg**3*d_part_avg**2)/(72*tau_fac_neg*(1-eps_gas_neg)**2)
     #Node thicknesses:
-    dy_neg1 = dy1
-    dy_neg2 = dy2
-    eps_g_dy_Inv_rxn = 1/(dy2*eps_gas_neg)
+    dy_neg1 = dy1_neg
+    dy_neg2 = dy2_neg
+    eps_gas_neg = eps_gas_neg
+    eps_g_dy_Inv_rxn = 1/(dy2_neg*eps_gas_neg)
     #Gas properties:
     dyn_vis_gas = mu 
     D_k_gas_neg = D_k_an
@@ -218,6 +223,12 @@ class pars:
     k_fwd_h2a = k_fwd_star_h2a
     k_rev_h2a = k_rev_star_h2a
 
+    "n_values for the negatrode charge transfer reactions:"
+    n_neg_p = n_neg_p
+    n_neg_o = n_neg_o
+    n_pos_p = n_pos_p
+    n_pos_o = n_pos_o
+
     "Material Parameters"
     #BCZYYb4411 parameters:
     ele_cond = ele_cond
@@ -247,6 +258,7 @@ class pars:
     #Anode Geometric Parameters
     L_TPB = 2*math.pi*r_int
     A_surf_Ni_neg = 4*math.pi*(d_Ni_neg/2)**2
+    A_fac_Ni = 0.5*eps_Ni*3.*dy2_neg/d_Ni_neg #Converted from your A_fac reaction A of Ni per A negatrode
     A_surf_elyte_neg = 4*math.pi*(d_elyte_neg/2)**2
     tau_fac_neg = eps_gas_neg**n_brugg #tortuosity factor
     Kg_neg = (eps_gas_neg**3*d_part_avg**2)/(72*tau_fac_neg*(1-eps_gas_neg)**2) #gas permeability, see calculations for more details
@@ -282,10 +294,11 @@ class pars:
 class ptr:
     dphi_int_neg = 0
     
-    C_k_gd_neg = 1
+    #C_k in negatrode GDL: starts just after dphi_int_neg, is same size as C_k_gd_neg0:
+    C_k_gd_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
 
-    C_k_rxn_neg = np.arange(C_k_gd_neg+1)
+    C_k_rxn_neg = np.arange(C_k_gd_neg[-1]+1, C_k_gd_neg[-1]+1+C_k_gd_neg0.shape[0])
     
-    dphi_int_pos = 3
+    dphi_int_pos = 1#C_k_rxn_neg[-1]+1
 
 

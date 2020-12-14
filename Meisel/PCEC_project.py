@@ -18,16 +18,17 @@
 from scipy.integrate import solve_ivp #integration function for ODE system.
 from pcec_functions import residual # point the model to the residual function
 from pcec_params import pars, SV_0, ptr #imports parameters, the initial SV and the pointer class
+from matplotlib import pyplot as plt
 
 def pcec_model():
     # The use of the 'lambda' function is required here so that we can pass the 
     #   class variablels 'pars' and 'ptr.'  Otherwise, we can only pass the 
     #   time span and our initial solution SV_0:
     solution = solve_ivp(lambda t, y: residual(t, y, pars, ptr),
-        pars.time_span, SV_0, rtol=1e-8, atol=1e-8, method='BDF')
+        pars.time_span, SV_0, rtol=1e-8, atol=1e-12, method='BDF')
+    return solution
 
-<<<<<<< HEAD
-    return solution
-=======
-    return solution
->>>>>>> d2f2e9416921fe8c319834d2480601bd7973e035
+solution = pcec_model()
+for var in solution.y:
+    plt.plot(solution.t,var)
+    plt.show()
