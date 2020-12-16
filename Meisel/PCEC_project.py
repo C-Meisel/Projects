@@ -20,15 +20,18 @@ from pcec_functions import residual # point the model to the residual function
 from pcec_params import pars, SV_0, ptr #imports parameters, the initial SV and the pointer class
 from matplotlib import pyplot as plt
 
+
 def pcec_model():
     # The use of the 'lambda' function is required here so that we can pass the 
     #   class variablels 'pars' and 'ptr.'  Otherwise, we can only pass the 
     #   time span and our initial solution SV_0:
     solution = solve_ivp(lambda t, y: residual(t, y, pars, ptr),
-        pars.time_span, SV_0, rtol=1e-8, atol=1e-12, method='BDF')
+        pars.time_span, SV_0, rtol=1e-8, atol=1e-6, method='BDF')
     return solution
 
 solution = pcec_model()
 for var in solution.y:
     plt.plot(solution.t,var)
     plt.show()
+
+#plt.legend(['dphi_dl_neg','C_H2_gd','C_N2_gd','C_steam_gd','C_H2_rxn','C_N2_rxn','C_steam_rxn','dphi_dl_pos'])

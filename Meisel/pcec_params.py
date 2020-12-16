@@ -13,7 +13,7 @@ import math
 i_ext = 40 #A
 C_dl_neg = 6e5 # F/m2 this makes it so my function does not go to negative infinity
 C_dl_pos = 2e2 # F/m2 (need to look up)
-t_final = 100 #seconds
+t_final = 1000 #seconds
 
 "Physical Constants:"
 F = 96485 #C/mol e-
@@ -33,11 +33,11 @@ dy_pos = 20e-6 # m
 #-----Negatrode: For now there is a non reactive node and a reaction node
 #Initial Pressures
 P_neg_gd = 101325 # Pa
-P_neg_rxn = 81343 # Pa
+P_neg_rxn = 101325 #81343 # Pa
 
 # Initial mol fractions
-X_k_gd = np.array([0.50, 0.49, 0.01]) #H2, N2, Steam
-X_k_rxn = np.array([0.40, 0.55, 0.05]) #H2, N2, Steam
+X_k_gd = np.array([0.50, 0.50, 1e-12]) #H2, N2, Steam ([0.50, 0.49, 0.01])
+X_k_rxn = np.array([0.50, 0.50, 1e-12]) #H2, N2, Steam ([0.40, 0.55, 0.05])
 
 #Concentrations
 C_k_gd_neg0 = X_k_gd*((P_neg_gd)/(R*T)) #H2, N2, Steam
@@ -78,13 +78,6 @@ k_rev_star_pos_o = 4.0650045e-2 #Chemical reverse rate constant, m^4/mol^2/s
 #Positrode HRR also neeed to look these up, but im assuming they are much faster than the oxide ones
 k_fwd_star_pos_p = 4.16307062e+2 # Chemical forward rate constant, m^4/mol^2/s
 k_rev_star_pos_p = 4.0650045e+0 #Chemical reverse rate constant, m^4/mol^2/s
-#Negatrode water desorption: (water desorbing from Ni at 550C) (K^*=K, only a chemical reaction)
-k_fwd_star_neg_wd = 2 #m^4/(mol^2*s) (need to look up)
-k_rev_star_neg_wd = 1 #m^4/(mol^2*s) (need to look up)
-#Negatrode Hydrogen adsorption (Hydrogen gas adsorbing from Ni at 550C)
-k_fwd_star_h2a = 2 #m^4/(mol^2*s) (need to look up)
-k_rev_star_h2a = 1 #m^4/(mol^2*s) (need to look up)
-
 
 "Material Parameters"
 #BCZYYb4411 parameters:
@@ -125,7 +118,7 @@ d_part_avg = (d_Ni_neg+d_elyte_neg)/2 #just taking a linear average of the two p
 r_int = 2*10**-6 #(m) rough estimate from SEM images, interface region between particles, on SEM images it looks almost like the radius
 #Cathode
 d_BCFZY = 500*10**-9 #(m) rough estimate from SEM images
-eps_BCFZY = 0.5 #just assuming 50% porosity need to look up this value could measure more accurately
+eps_BCFZY = 0.45 #just assuming 55% porosity need to look up this value could measure more accurately
 eps_gas_pos = 1-eps_BCFZY
 
 "Thermodynamic values (first 5 taken from homework 4, last one I had to make up)"
@@ -158,23 +151,16 @@ nu_O_BF_pos_o = -1
 nu_Ox_BF_pos_o = 1
 nu_vac_BF_pos_o = 1
 
-"Stoichiometric values for the gas transfer reactions at the negatrode"
-#Hydrogen adsorption
-nu_H_Ni_g = 2
-nu_vac_Ni_g = -2
-nu_H2_gas_g = -1
-#Water desorption:
-nu_H2O_Ni_g = -1
-nu_vac_Ni_g = 1
-nu_H20_gas_neg_g = 1
-
 #/\/\/\/\/\ Initializing Solution Vector /\/\/\/\/\
-SV_0 = np.hstack([dphi_int_neg_0, C_k_gd_neg0, C_k_rxn_neg0, dphi_int_pos_0 ])
+#SV_0 = np.hstack([dphi_int_neg_0, C_k_gd_neg0, C_k_rxn_neg0, dphi_int_pos_0 ])
+SV_0 = np.hstack([dphi_int_neg_0, C_k_rxn_neg0, dphi_int_pos_0 ])
+#SV_s = np.array(['dphi_dl_neg','C_H2_gd','C_N2_gd','C_steam_gd','C_H2_rxn','C_N2_rxn','C_steam_rxn','dphi_dl_pos'])
 #SV_0 = np.array([dphi_int_neg_0,dphi_int_pos_0])
 print(SV_0)
 
 #/\/\/\/\/\ Making the parameter class /\/\/\/\/\
 class pars:
+    C_k_gd_neg0 = C_k_gd_neg0 #H2, N2, Steam
     #important parameters
     i_ext = i_ext
     C_dl_neg = C_dl_neg
@@ -216,12 +202,6 @@ class pars:
     #Positrode HRR 
     k_fwd_star_pos_p = k_fwd_star_pos_p
     k_rev_star_pos_p = k_rev_star_pos_p
-    #Negatrode water desorption: (water desorbing from Ni at 550C)
-    k_fwd_neg_wd = k_fwd_star_neg_wd
-    k_rev_neg_wd = k_rev_star_neg_wd
-    #Negatrode Hydrogen adsorption (Hydrogen gas adsorbing from Ni at 550C)
-    k_fwd_h2a = k_fwd_star_h2a
-    k_rev_h2a = k_rev_star_h2a
 
     "n_values for the negatrode charge transfer reactions:"
     n_neg_p = n_neg_p
@@ -279,15 +259,27 @@ class pars:
     prod_rev_pos_o = C_Ox_BF**nu_Ox_BF_pos_o
     prod_rev_pos_p = C_H2O_BF**nu_H2O_BF_pos_p * C_vac_BF**nu_vac_BF_pos_p
 
-    "Stoichiometric coefficients"
-    #Hydrogen adsorption
-    nu_H_Ni_g = nu_H_Ni_g
-    nu_vac_Ni_g = nu_vac_Ni_g
-    nu_H2_gas_g = nu_H2_gas_g
-    #Water desorption:
-    nu_H2O_Ni_g = nu_H2O_Ni_g
-    nu_vac_Ni_g = nu_vac_Ni_g
-    nu_H20_neg_g = nu_H20_gas_neg_g
+    "Stoichiometric values For the charge transfer reactions:"
+    #negatrode proton reaction:
+    nu_H_Ni_neg_p = nu_H_Ni_neg_p
+    nu_vac_ely_neg_p = nu_vac_ely_neg_p
+    nu_Hx_ely_neg_p = nu_Hx_ely_neg_p
+    nu_vac_Ni_neg_p = nu_vac_Ni_neg_p
+    #negatrode oxide reaction:
+    nu_H_Ni_neg_o = nu_H_Ni_neg_o
+    nu_H2O_Ni_neg_o = nu_H2O_Ni_neg_o
+    nu_vac_Ni_neg_o = nu_vac_Ni_neg_o
+    nu_vac_elyte_neg_o = nu_vac_elyte_neg_o 
+    nu_Ox_elyte_neg_o = nu_Ox_elyte_neg_o
+    #postirode proton reaction:
+    nu_Hx_BF_pos_p = nu_Hx_BF_pos_p
+    nu_O_BF_pos_p = nu_O_BF_pos_p
+    nu_H2O_BF_pos_p = nu_H2O_BF_pos_p
+    nu_vac_BF_pos_p = nu_vac_BF_pos_p 
+    #positrode oxide reaction:
+    nu_O_BF_pos_o = nu_O_BF_pos_o
+    nu_Ox_BF_pos_o = nu_Ox_BF_pos_o
+    nu_vac_BF_pos_o = nu_vac_BF_pos_o
     
 #/\/\/\/\/\ Making the pointer class/\/\/\/\/\
 #specifies where in SV certain variables are stored
@@ -295,10 +287,10 @@ class ptr:
     dphi_int_neg = 0
     
     #C_k in negatrode GDL: starts just after dphi_int_neg, is same size as C_k_gd_neg0:
-    C_k_gd_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
-
-    C_k_rxn_neg = np.arange(C_k_gd_neg[-1]+1, C_k_gd_neg[-1]+1+C_k_gd_neg0.shape[0])
+    #C_k_gd_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
+    C_k_rxn_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
+    #C_k_rxn_neg = np.arange(C_k_gd_neg[-1]+1, C_k_gd_neg[-1]+1+C_k_gd_neg0.shape[0])
     
-    dphi_int_pos = 1#C_k_rxn_neg[-1]+1
+    dphi_int_pos = C_k_rxn_neg[-1]+1
 
 

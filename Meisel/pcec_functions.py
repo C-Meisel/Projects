@@ -63,36 +63,36 @@ def residual(t, SV, pars, ptr):
     ddphi_int_neg = -i_dl_neg/pars.C_dl_neg
     #print(ddphi_int_neg)
     dSV_dt[ptr.dphi_int_neg] = ddphi_int_neg
-    print(dSV_dt[ptr.dphi_int_neg])
+    #print(dSV_dt[ptr.dphi_int_neg])
+
+    "Surface species reconsiliation"
+
     
     "Negatrode Gas Transport"
     #Getting parameters from the SV
-    C_k_gd_neg = SV[ptr.C_k_gd_neg]
+    #C_k_gd_neg = SV[ptr.C_k_gd_neg]
+    C_k_gd_neg = pars.C_k_gd_neg0 #SV[ptr.C_k_gd_neg]
     C_k_rxn_neg = SV[ptr.C_k_rxn_neg]
     #Making dictionaries for the gas diffusion equation:
     s1 = {'C_k':C_k_gd_neg,'dy':pars.dy_neg1}
     s2 = {'C_k':C_k_rxn_neg,'dy':pars.dy_neg2}
-    gasProps_neg = {'Kg':pars.Kg_neg,'t_fac':pars.tau_fac_neg,'D_k':pars.D_k_gas_neg, 'mu':pars.dyn_vis_gas,'T':pars.T,'eps_g':pars.eps_gas_neg}
+    gasProps_neg = {'Kg':pars.Kg_neg,'t_fac':pars.tau_fac_neg,'D_k':pars.D_k_gas_neg, 
+                        'mu':pars.dyn_vis_gas,'T':pars.T,'eps_g':pars.eps_gas_neg}
     #Running gas transport function
     N_k_i = electrode_gas_transport(s1,s2,gasProps_neg) #mol/m^3
     "Negatrode Gas Phase Reactions"
     #Hydrogen adsorption:
-    prod_fwd_h2a = (C_k_rxn_neg[0]/np.sum(C_k_rxn_neg))**-pars.nu_H2_gas_g * pars.C_vac_Ni**-pars.nu_vac_Ni_g #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
-    prod_rev_h2a = pars.C_H_Ni**pars.nu_H_Ni_g 
-    qdot_h2a = pars.k_fwd_h2a * prod_fwd_h2a - pars.k_rev_h2a * prod_rev_h2a
-    sdot_H2 = pars.nu_H2_gas_g * qdot_h2a #(mol/(m2*s))int not an array
+    sdot_H2 = 0.5*(((i_Far_neg_p*pars.nu_H_Ni_neg_p)/(pars.n_neg_p*F)) +
+     ((i_Far_neg_o*pars.nu_H_Ni_neg_o)/(pars.n_neg_o*F)))/pars.A_surf_Ni_neg #(mol/(m2*s))int not an array
     #Water desorption:
-    prod_fwd_neg_wd = pars.C_H2O_Ni**pars.nu_H2O_Ni_g #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
-    prod_rev_neg_wd = (C_k_rxn_neg[2]/np.sum(C_k_rxn_neg))**-pars.nu_H20_neg_g * pars.C_vac_Ni**pars.nu_vac_Ni_g
-    qdot_h2a = pars.k_fwd_neg_wd * prod_fwd_neg_wd - pars.k_fwd_neg_wd * prod_rev_neg_wd
-    sdot_H20_gas_neg = pars.nu_H2_gas_g * qdot_h2a #int not an array
-
+    sdot_H20_gas_neg = (i_Far_neg_o*pars.nu_H2O_Ni_neg_o)/(pars.n_neg_o*F)/pars.A_surf_Ni_neg #int not an array
     #final gas phase equation
-    sdot_k = np.array([sdot_H2,0,sdot_H20_gas_neg]) #(mol/(m2*s))hydrogen, oxygen, water
-    print(sdot_k)
-    print(N_k_i)
+    sdot_k = np.array([sdot_H2,0,sdot_H20_gas_neg]) #(mol/(m2*s))hydrogen, nitrogen, water
+    #print(sdot_k)
+    #print(N_k_i)
     dCk_dt = (N_k_i + sdot_k*pars.A_fac_Ni)*pars.eps_g_dy_Inv_rxn
     #print(dCk_dt)
+    #print(SV[ptr.C_k_gd_neg])
     dSV_dt[ptr.C_k_rxn_neg] = dCk_dt
     #q
     #----- Positrode ------------------------------------------------
@@ -112,6 +112,4 @@ def residual(t, SV, pars, ptr):
     i_dl_pos = pars.i_ext - i_Far_pos
     ddphi_int_pos = -i_dl_pos/pars.C_dl_pos
     dSV_dt[ptr.dphi_int_pos] = ddphi_int_pos
-    #print(dSV_dt[ptr.dphi_int_pos])
-    print(dSV_dt)
     return dSV_dt
