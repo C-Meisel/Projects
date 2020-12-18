@@ -39,7 +39,6 @@ def electrode_gas_transport(s1,s2,gasProps): #calculates gas diffusion betwee tw
     return N_k
 
 #/\/\/\/\/\/\ Ion/electron diffusion modeling /\/\/\/\
-#So far only contains one function
 #def mixed_conduction(s1,s2,matProps): #calculates the ionic and electronic diffusion of the three species
 
 #/\/\/\/\/\/\ Main Modeling function /\/\/\/\/\/\/\
@@ -49,12 +48,29 @@ def residual(t, SV, pars, ptr):
     #----- Negatrode ------------------------------------------------
     "Charge Transfer"
     dphi_neg = SV[ptr.dphi_int_neg]
-    #Mass Action Equations For Charge Transfer:
-    i_Far_neg_o = pars.n_neg_o*F*(pars.k_fwd_star_neg_o*math.exp((-pars.beta_o*pars.n_neg_o*F*dphi_neg)/(R*pars.T))*pars.prod_fwd_neg_o
-        -pars.k_rev_star_neg_o*math.exp(((1-pars.beta_o)*pars.n_neg_o*F*dphi_neg)/(R*pars.T)))
     
-    i_Far_neg_p = pars.n_neg_p*F*(pars.k_fwd_star_neg_p*math.exp((-pars.beta_p*pars.n_neg_p*F*dphi_neg)/(R*pars.T))*pars.prod_fwd_neg_p
-        -pars.k_rev_star_neg_p*math.exp(((1-pars.beta_p)*pars.n_neg_p*F*dphi_neg)/(R*pars.T)))
+    #"Activity concentrations"
+    #Negatrode Activity Concentrations: 
+    C_H_Ni = SV[ptr.C_H_Ni] #(mol/m^2)
+    C_H2O_Ni = SV[ptr.C_H2O_Ni] #(mol/m^2)
+    C_vac_Ni = SV[ptr.C_vac_Ni] #(mol/m^2)
+    C_Hx_elyte = SV[ptr.C_Hx_elyte] #(mol/m^3)
+    C_Ox_elyte = SV[ptr.C_Ox_elyte] #(mol/m^3)
+    C_vac_elyte = SV[ptr.C_vac_elyte] #(mol/m^3)
+
+    # Product Reactions:
+    "Negatrode Product calculations" #Calculates the product terms in the mass action equations
+    prod_fwd_neg_o = C_Ox_elyte**-pars.nu_Ox_ely_neg_o * C_H_Ni**-pars.nu_H_Ni_neg_o  #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
+    prod_fwd_neg_p = C_H_Ni**-pars.nu_H_Ni_neg_p * C_vac_Ni**-pars.nu_vac_ely_neg_p
+    prod_rev_neg_o = C_vac_elyte**pars.nu_vac_ely_neg_o * C_H2O_Ni**pars.nu_H2O_Ni_neg_o * C_vac_Ni**pars.nu_vac_Ni_neg_o
+    prod_rev_neg_p = C_Hx_elyte**pars.nu_Hx_ely_neg_p * C_vac_Ni**pars.nu_vac_Ni_neg_p
+
+    #Mass Action Equations For Charge Transfer:
+    i_Far_neg_o = pars.n_neg_o*F*(pars.k_fwd_star_neg_o*math.exp((-pars.beta_o*pars.n_neg_o*F*dphi_neg)/(R*pars.T))*prod_fwd_neg_o
+        -pars.k_rev_star_neg_o*math.exp(((1-pars.beta_o)*pars.n_neg_o*F*dphi_neg)/(R*pars.T))*prod_rev_neg_o)
+    
+    i_Far_neg_p = pars.n_neg_p*F*(pars.k_fwd_star_neg_p*math.exp((-pars.beta_p*pars.n_neg_p*F*dphi_neg)/(R*pars.T))*prod_fwd_neg_p
+        -pars.k_rev_star_neg_p*math.exp(((1-pars.beta_p)*pars.n_neg_p*F*dphi_neg)/(R*pars.T))*prod_rev_neg_p)
     
     i_Far_neg = i_Far_neg_o + i_Far_neg_p
     
@@ -65,9 +81,33 @@ def residual(t, SV, pars, ptr):
     dSV_dt[ptr.dphi_int_neg] = ddphi_int_neg
     #print(dSV_dt[ptr.dphi_int_neg])
 
-    "Surface species reconsiliation"
-
+    "Surface charge transfer reactions (finish equations lower down)"
+    #sdot calculations (mol/s): (need to make sure this isnt mol/m^2-s)
+    sdot_H_Ni = ((pars.nu_H_Ni_neg_p*i_Far_neg_p)/(pars.n_neg_p*F) +
+        (pars.nu_H_Ni_neg_o*i_Far_neg_o)/(pars.n_neg_o*F))
+    sdot_Hx_elyte = (pars.nu_Hx_ely_neg_p*i_Far_neg_p)/(pars.n_neg_p*F)#same as VOH
+    sdot_Ox_elyte = (pars.nu_Ox_ely_neg_o*i_Far_neg_o)/(pars.n_neg_o*F) #same as VO
+    sdot_H2O_Ni = (pars.nu_H2O_Ni_neg_o*i_Far_neg_o)/(pars.n_neg_o*F)
+    sdot_vac_Ni = ((pars.nu_vac_Ni_neg_p*i_Far_neg_p)/(pars.n_neg_p*F) +
+        (pars.nu_vac_Ni_neg_o*i_Far_neg_o)/(pars.n_neg_o*F)) #surface reaction site for a proton
+    sdot_vac_elyte = ((pars.nu_vac_ely_neg_p*i_Far_neg_p)/(pars.n_neg_p*F) +
+        (pars.nu_vac_ely_neg_o*i_Far_neg_o)/(pars.n_neg_o*F)) #site for a proton
     
+    #Hydrogen adsorption (gas phase reaction):
+    sdot_H2_gas = 0.5*(((pars.nu_H_Ni_neg_p*i_Far_neg_p)/(pars.n_neg_p*F)) +
+     ((i_Far_neg_o*pars.nu_H_Ni_neg_o)/(pars.n_neg_o*F)))#(mol/s)/pars.A_surf_Ni_neg #(mol/(m2*s))int not an array
+    #Water desorption(gas phase reaction):
+    sdot_H20_gas_neg = (i_Far_neg_o*pars.nu_H2O_Ni_neg_o)/(pars.n_neg_o*F)#/pars.A_surf_Ni_neg #int not an array
+
+    #DCk/dt (mol/m^2-s)
+    dSV_dt[ptr.C_H_Ni] = 2*sdot_H2_gas-sdot_H_Ni*pars.LTPB_invANi #DCk_dt_H
+    dSV_dt[ptr.C_Hx_elyte] = sdot_Hx_elyte*pars.LTPB_invANi #DCk_dt_Hx 
+    #J_Ox = 0.000454 #Temporary from HW4
+    dSV_dt[ptr.C_Ox_elyte]=  sdot_Ox_elyte-sdot_H2O_Ni*pars.LTPB_invANi #DCk_dt_Ox  maybe its this J_Ox-sdot_H2O_Ni*pars.LTPB_invANi
+    dSV_dt[ptr.C_H2O_Ni]= sdot_H2O_Ni*pars.LTPB_invANi-sdot_H20_gas_neg #DCk_dt_H2O
+    dSV_dt[ptr.C_vac_Ni] = -(2*sdot_H2_gas + sdot_H20_gas_neg) + sdot_vac_Ni*pars.LTPB_invANi #DCk_dt_vac_Ni
+    dSV_dt[ptr.C_vac_elyte]= sdot_vac_elyte*pars.LTPB_invANi# DCk_dt_vac_elyte
+
     "Negatrode Gas Transport"
     #Getting parameters from the SV
     #C_k_gd_neg = SV[ptr.C_k_gd_neg]
@@ -81,13 +121,9 @@ def residual(t, SV, pars, ptr):
     #Running gas transport function
     N_k_i = electrode_gas_transport(s1,s2,gasProps_neg) #mol/m^3
     "Negatrode Gas Phase Reactions"
-    #Hydrogen adsorption:
-    sdot_H2 = 0.5*(((i_Far_neg_p*pars.nu_H_Ni_neg_p)/(pars.n_neg_p*F)) +
-     ((i_Far_neg_o*pars.nu_H_Ni_neg_o)/(pars.n_neg_o*F)))/pars.A_surf_Ni_neg #(mol/(m2*s))int not an array
-    #Water desorption:
-    sdot_H20_gas_neg = (i_Far_neg_o*pars.nu_H2O_Ni_neg_o)/(pars.n_neg_o*F)/pars.A_surf_Ni_neg #int not an array
+
     #final gas phase equation
-    sdot_k = np.array([sdot_H2,0,sdot_H20_gas_neg]) #(mol/(m2*s))hydrogen, nitrogen, water
+    sdot_k = np.array([sdot_H2_gas,0,sdot_H20_gas_neg]) #(mol/(m2*s))hydrogen, nitrogen, water
     #print(sdot_k)
     #print(N_k_i)
     dCk_dt = (N_k_i + sdot_k*pars.A_fac_Ni)*pars.eps_g_dy_Inv_rxn

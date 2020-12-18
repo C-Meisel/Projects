@@ -6,14 +6,14 @@
 #\/\/^\/^\/\/^\ Imports /\/\/^\/^\/\/^\#
 import numpy as np
 import math
-
+from Charge_Transfer_Init import *
 
 #\/\/^\/^\/\/^\ Parameters /\/\/^\/^\/\/^\#
 "Importnat Variables For the SV to work"
 i_ext = 40 #A
 C_dl_neg = 6e5 # F/m2 this makes it so my function does not go to negative infinity
 C_dl_pos = 2e2 # F/m2 (need to look up)
-t_final = 1000 #seconds
+t_final = 10000 #seconds
 
 "Physical Constants:"
 F = 96485 #C/mol e-
@@ -35,11 +35,11 @@ dy_pos = 20e-6 # m
 P_neg_gd = 101325 # Pa
 P_neg_rxn = 101325 #81343 # Pa
 
-# Initial mol fractions
+# Initial mol fractions of negatrode gasses
 X_k_gd = np.array([0.50, 0.50, 1e-12]) #H2, N2, Steam ([0.50, 0.49, 0.01])
 X_k_rxn = np.array([0.50, 0.50, 1e-12]) #H2, N2, Steam ([0.40, 0.55, 0.05])
 
-#Concentrations
+#Gas Concentrations
 C_k_gd_neg0 = X_k_gd*((P_neg_gd)/(R*T)) #H2, N2, Steam
 C_k_rxn_neg0 = X_k_rxn*((P_neg_rxn)/(R*T)) #H2, N2, Steam
 
@@ -61,50 +61,28 @@ phi_pos_0 = 1.05 # I will calculate more accurately later
 dphi_int_neg_0 = phi_elyte_0-phi_neg_0 #Sets the applied potential on the cell\
 dphi_int_pos_0 = phi_pos_0-phi_elyte_0
 
-"beta values (need to also look up)"
-beta_o = 0.5 
-beta_p = 0.5
-
-"Chemical parameters: (For these I just used yours, not sure where/how to find them) (I also kept hte positrode and negatrode values the same for now)"
-#Negatrode OER
-k_fwd_star_neg_o = 4.16307062e+1 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_neg_o = 4.0650045e-1 #Chemical reverse rate constant, m^4/mol^2/s
-#Negatrode HER also neeed to look these up, but im assuming they are much faster than the oxide ones
-k_fwd_star_neg_p = 4.16307062e+3 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_neg_p = 4.0650045e+1 #Chemical reverse rate constant, m^4/mol^2/s
-#Positrode ORR
-k_fwd_star_pos_o = 4.16307062e+0 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_pos_o = 4.0650045e-2 #Chemical reverse rate constant, m^4/mol^2/s
-#Positrode HRR also neeed to look these up, but im assuming they are much faster than the oxide ones
-k_fwd_star_pos_p = 4.16307062e+2 # Chemical forward rate constant, m^4/mol^2/s
-k_rev_star_pos_p = 4.0650045e+0 #Chemical reverse rate constant, m^4/mol^2/s
+"Activity concentrations"
+#Negatrode Activity Concentrations: 
+C_H_Ni = X_H_Ni*C_Ni_s #(mol/m^2)
+C_H2O_Ni = X_H2O_Ni*C_Ni_s #(mol/m^2)
+C_vac_Ni = X_vac_Ni*C_Ni_s #(mol/m^2)
+C_Hx_elyte = X_Hx_elyte*lat_site_BCZYYb #(mol/m^3)
+C_Ox_elyte = X_Ox_elyte*lat_site_BCZYYb #(mol/m^3)
+C_vac_elyte = X_vac_elyte*lat_site_BCZYYb #(mol/m^3)
+#Positrode Activity Concentrations: (mol/m^2)
+C_Hx_BF_s = X_Hx_BF*C_BCFZY_s
+C_H2O_BF_s = X_H2O_BF*C_BCFZY_s
+C_vac_BF_s = X_vac_BF*C_BCFZY_s
+C_O_BF_s = X_O_BF*C_BCFZY_s
+C_Ox_BF_s = X_Ox_elyte*C_BCFZY_s
 
 "Material Parameters"
-#BCZYYb4411 parameters:
-ele_cond = 0.001 #1/(ohm*m) Need to look up this value so I just used yours
-C_elyte = 46050    # Total (reference) elyte concentration, mol/m2 (I will calculate this at a later point)
-D_k_ely = np.array([7.46*10**-11,1.28*10**-12,0]) #(m^2/s) [Proton,Oxygen,Vacancy] Again I need to look these up so I used yours
-#Nickle parameters:
+#Lattice Site parameters:
+lat_site_BCZYYb = 19484 #mol/m^3 7111
+#Zhu, H., Ricote, S., Duan, C., O’Hayre, R. P. & Kee, R. J.  Defect Chemistry and Transport within Dense 
+#BaCe0.7Zr0.1Y0.1Yb0.1O3−δ(BCZYYb) Proton-Conducting Membranes . J. Electrochem. Soc. 165, F845–F853 (2018).
 C_Ni_s = 2.6e-05 #Surface site Concentrations mol/m^2 (again this is just from hw4)
-#BCFZY parameters:
-C_BCFZY = 46000 #mol/m^2 surface site concentration, I will look this up (If it is not known I will estimate it) likely it is similar to the elyte
-
-"Concentrations/activities: I need to look these up so I used yours from HW4."
-#-----Negatrode:
-#Mol fractions (no units)
-X_H_Ni = 0.6 #HW4
-X_H2O_Ni = 0.2 #HW4
-X_vac_Ni = 0.2 #HW4
-X_Ox_elyte = 0.8 #I know this is 0.8
-X_Hx_elyte = 0.1 #I am unsure of the split between Hx and oxygen vacancies
-X_vac_elyte = 0.1 
-#-----Positrode:
-#Mol fractions (no units) #I made these up, all I know is that 80% of the lattice sites:
-X_Hx_BF = 0.05
-X_H2O_BF = 0.05
-X_vac_BF = 0.05
-X_O_BF = 0.05
-X_Ox_BF = 0.8
+C_BCFZY_s = 2e-5 #Made this up, though I do have the bulk value
 
 "geometric parameters"
 n_brugg = -0.5 #bruggman factor assuming alpha is -1.5
@@ -129,33 +107,15 @@ g_Vac_elyte_o = 0.0           # standard-state gibbs energy for electrolyte oxid
 g_Ox_elyte_o = -2.1392135e+08 # standard-state gibbs energy for electrolyte oxide O2- (J/kmol)
 g_Hx_elyte_o = -2.1392135e+07 # standard-state gibbs energy for electrolyte protons H+ (J/kmol)
 
-"Stoichiometric values For the charge transfer reactions:"
-#negatrode proton reaction:
-nu_H_Ni_neg_p = -1
-nu_vac_ely_neg_p = -1
-nu_Hx_ely_neg_p = 1
-nu_vac_Ni_neg_p = 1
-#negatrode oxide reaction:
-nu_H_Ni_neg_o = -2
-nu_H2O_Ni_neg_o = 1
-nu_vac_Ni_neg_o = 1
-nu_vac_elyte_neg_o = 1
-nu_Ox_elyte_neg_o = -1
-#postirode proton reaction:
-nu_Hx_BF_pos_p = -2
-nu_O_BF_pos_p = -1
-nu_H2O_BF_pos_p = 1
-nu_vac_BF_pos_p = 1
-#positrode oxide reaction:
-nu_O_BF_pos_o = -1
-nu_Ox_BF_pos_o = 1
-nu_vac_BF_pos_o = 1
-
 #/\/\/\/\/\ Initializing Solution Vector /\/\/\/\/\
 #SV_0 = np.hstack([dphi_int_neg_0, C_k_gd_neg0, C_k_rxn_neg0, dphi_int_pos_0 ])
-SV_0 = np.hstack([dphi_int_neg_0, C_k_rxn_neg0, dphi_int_pos_0 ])
+#SV_0 = np.hstack([dphi_int_neg_0, C_k_rxn_neg0, dphi_int_pos_0 ])
 #SV_s = np.array(['dphi_dl_neg','C_H2_gd','C_N2_gd','C_steam_gd','C_H2_rxn','C_N2_rxn','C_steam_rxn','dphi_dl_pos'])
 #SV_0 = np.array([dphi_int_neg_0,dphi_int_pos_0])
+SV_0 = np.hstack([dphi_int_neg_0, C_H_Ni, C_H2O_Ni, C_vac_Ni, C_Hx_elyte, 
+    C_Ox_elyte, C_vac_elyte, C_k_rxn_neg0, dphi_int_pos_0 ])
+# SV including all negatrode reactions:
+
 print(SV_0)
 
 #/\/\/\/\/\ Making the parameter class /\/\/\/\/\
@@ -209,35 +169,11 @@ class pars:
     n_pos_p = n_pos_p
     n_pos_o = n_pos_o
 
-    "Material Parameters"
-    #BCZYYb4411 parameters:
-    ele_cond = ele_cond
-    C_elyte = C_elyte
-    D_k = D_k_ely
-    #Nickle parameters:
-    C_Ni_s = C_Ni_s
-    #BCFZY parameters:
-    C_BCFZY = C_BCFZY
-
-    "Activity concentrations"
-    #Negatrode Activity Concentrations: (mol/m^2)
-    C_H_Ni = X_H_Ni*C_Ni_s
-    C_H2O_Ni = X_H2O_Ni*C_Ni_s
-    C_vac_Ni = X_vac_Ni*C_Ni_s
-    C_Hx_elyte = X_Hx_elyte*C_elyte
-    C_Ox_elyte = X_Ox_elyte*C_elyte
-    C_vac_elyte = X_vac_elyte*C_elyte
-    #Positrode Activity Concentrations: (mol/m^2)
-    C_Hx_BF = X_Hx_BF*C_BCFZY
-    C_H2O_BF = X_H2O_BF*C_BCFZY
-    C_vac_BF = X_vac_BF*C_BCFZY
-    C_O_BF = X_O_BF*C_BCFZY
-    C_Ox_BF = X_Ox_elyte*C_BCFZY
-
     "Geometric parameters"
     #Anode Geometric Parameters
     L_TPB = 2*math.pi*r_int
     A_surf_Ni_neg = 4*math.pi*(d_Ni_neg/2)**2
+    LTPB_invANi = L_TPB/A_surf_Ni_neg
     A_fac_Ni = 0.5*eps_Ni*3.*dy2_neg/d_Ni_neg #Converted from your A_fac reaction A of Ni per A negatrode
     A_surf_elyte_neg = 4*math.pi*(d_elyte_neg/2)**2
     tau_fac_neg = eps_gas_neg**n_brugg #tortuosity factor
@@ -247,17 +183,18 @@ class pars:
     tau_fac_pos = eps_gas_pos**n_brugg
     Kg_pos = (eps_gas_pos**3*d_part_avg**2)/(72*tau_fac_pos*(1-eps_gas_neg)**2)
 
-    "Negatrode Product calculations" #Calculates the product terms in the mass action equations
-    prod_fwd_neg_o = C_Ox_elyte**-nu_Ox_elyte_neg_o * C_H_Ni**-nu_H_Ni_neg_o  #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
-    prod_fwd_neg_p = C_H_Ni**-nu_H_Ni_neg_p * C_vac_Ni**-nu_vac_ely_neg_p
-    prod_rev_neg_o = C_vac_elyte**nu_vac_elyte_neg_o * C_H2O_Ni**nu_H2O_Ni_neg_o * C_vac_Ni**nu_vac_Ni_neg_o
-    prod_rev_neg_p = C_Hx_elyte**nu_Hx_ely_neg_p * C_vac_Ni**nu_vac_Ni_neg_p
+    #Positrode Surface Activity Concentrations: (mol/m^2)
+    C_Hx_BF_s = C_Hx_BF_s
+    C_H2O_BF_s = C_H2O_BF_s
+    C_vac_BF_s = C_vac_BF_s
+    C_O_BF_s = C_O_BF_s
+    C_Ox_BF_s = C_Ox_BF_s
 
     "Positrode Product calculations" #Calculates the product terms in the mass action equations
-    prod_fwd_pos_o = C_O_BF**-nu_O_BF_pos_o #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
-    prod_fwd_pos_p = C_Hx_BF**-nu_Hx_BF_pos_p * C_O_BF**-nu_O_BF_pos_p
-    prod_rev_pos_o = C_Ox_BF**nu_Ox_BF_pos_o
-    prod_rev_pos_p = C_H2O_BF**nu_H2O_BF_pos_p * C_vac_BF**nu_vac_BF_pos_p
+    prod_fwd_pos_o = C_O_BF_s**-nu_O_BF_pos_o #- signs are needed to cancel out the sign convention of the stoichiometric coefficients
+    prod_fwd_pos_p = C_Hx_BF_s**-nu_Hx_BF_pos_p * C_O_BF_s**-nu_O_BF_pos_p
+    prod_rev_pos_o = C_Ox_BF_s**nu_Ox_BF_pos_o
+    prod_rev_pos_p = C_H2O_BF_s**nu_H2O_BF_pos_p * C_vac_BF_s**nu_vac_BF_pos_p
 
     "Stoichiometric values For the charge transfer reactions:"
     #negatrode proton reaction:
@@ -269,8 +206,8 @@ class pars:
     nu_H_Ni_neg_o = nu_H_Ni_neg_o
     nu_H2O_Ni_neg_o = nu_H2O_Ni_neg_o
     nu_vac_Ni_neg_o = nu_vac_Ni_neg_o
-    nu_vac_elyte_neg_o = nu_vac_elyte_neg_o 
-    nu_Ox_elyte_neg_o = nu_Ox_elyte_neg_o
+    nu_vac_ely_neg_o = nu_vac_elyte_neg_o 
+    nu_Ox_ely_neg_o = nu_Ox_elyte_neg_o
     #postirode proton reaction:
     nu_Hx_BF_pos_p = nu_Hx_BF_pos_p
     nu_O_BF_pos_p = nu_O_BF_pos_p
@@ -286,11 +223,25 @@ class pars:
 class ptr:
     dphi_int_neg = 0
     
-    #C_k in negatrode GDL: starts just after dphi_int_neg, is same size as C_k_gd_neg0:
+    #Negatrode surface concentrations:
+    C_H_Ni = dphi_int_neg+1
+    C_H2O_Ni = C_H_Ni+1
+    C_vac_Ni = C_H2O_Ni+1
+    C_Hx_elyte = C_vac_Ni+1
+    C_Ox_elyte = C_Hx_elyte+1
+    C_vac_elyte = C_Ox_elyte+1
+
+    ##C_k in negatrode GDL: starts just after dphi_int_neg, is same size as C_k_gd_neg0:
     #C_k_gd_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
-    C_k_rxn_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
+    
+    #C_k_rxn_neg = np.arange(dphi_int_neg+1, dphi_int_neg+1+C_k_gd_neg0.shape[0])
+    
     #C_k_rxn_neg = np.arange(C_k_gd_neg[-1]+1, C_k_gd_neg[-1]+1+C_k_gd_neg0.shape[0])
+
+    C_k_rxn_neg = np.arange(C_vac_elyte+1, C_vac_elyte+1+C_k_gd_neg0.shape[0])
     
     dphi_int_pos = C_k_rxn_neg[-1]+1
 
 
+SV_0 = np.hstack([dphi_int_neg_0, C_H_Ni, C_H2O_Ni, C_vac_Ni, C_Hx_elyte, 
+    C_Ox_elyte, C_vac_elyte, C_k_rxn_neg0, dphi_int_pos_0 ])

@@ -30,8 +30,16 @@ def pcec_model():
     return solution
 
 solution = pcec_model()
-for var in solution.y:
-    plt.plot(solution.t,var)
-    plt.show()
+print(solution)
+#for var in solution.y:
+    #plt.plot(solution.t,var)
+    #plt.show()
 
-#plt.legend(['dphi_dl_neg','C_H2_gd','C_N2_gd','C_steam_gd','C_H2_rxn','C_N2_rxn','C_steam_rxn','dphi_dl_pos'])
+#plt.plot(solution.t,solution.y[0])
+#plt.xlabel("time (s)")
+#plt.ylabel('Dphi_dl_neg')
+
+plt.plot(solution.t,solution.y[4])
+plt.xlabel("time (s)")
+plt.ylabel('C_H+_neg')
+plt.show()
